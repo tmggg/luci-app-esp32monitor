@@ -1,0 +1,31 @@
+{
+  "luci-app-esp32monitor": {
+    "description": "Configure ESP32 status endpoint",
+    "read": {
+      "uci": [
+        "esp32monitor"
+      ],
+      "ubus": {
+        "file": [
+          "list"
+        ]
+      },
+      "file": {
+        "/sys/class/thermal": [
+          "list"
+        ],
+        "/sys/class/hwmon": [
+          "list"
+        ],
+        "/sys/class/hwmon/hwmon[0-9]*": [
+          "list"
+        ]
+      }
+    },
+    "write": {
+      "uci": [
+        "esp32monitor"
+      ]
+    }
+  }
+}

@@ -1,0 +1,7 @@
+config esp32monitor 'main'
+	option enabled '0'
+	option api_token ''
+	option wan_device ''
+	option only_link_up '1'
+	option temperature_source 'auto'
+	option allow_query_token '1'

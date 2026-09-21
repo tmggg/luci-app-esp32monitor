@@ -1,0 +1,55 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: zh_Hans\n"
+
+msgid "ESP32 Monitor"
+msgstr "ESP32 监控"
+
+msgid "Provide router status to ESP32 over HTTP. Endpoint: /cgi-bin/esp32-status. Sampling takes approximately one second; traffic rates are bytes per second."
+msgstr "通过 HTTP 向 ESP32 提供路由器状态。接口：/cgi-bin/esp32-status。每次采样约需一秒；流量速率单位为字节/秒。"
+
+msgid "Enable status endpoint"
+msgstr "启用状态接口"
+
+msgid "API token"
+msgstr "访问令牌"
+
+msgid "Use 8–128 letters, digits, underscores or hyphens. A random token is generated on installation."
+msgstr "使用 8–128 位字母、数字、下划线或连字符。安装时自动生成随机令牌。"
+
+msgid "Enter 8–128 URL-safe characters."
+msgstr "请输入 8–128 位 URL 安全字符。"
+
+msgid "WAN device"
+msgstr "WAN 设备"
+
+msgid "Leave empty for automatic detection. This identifies WAN and does not filter monitored interfaces."
+msgstr "留空自动检测。此设置仅标识 WAN，不过滤监控接口。"
+
+msgid "Monitored interfaces"
+msgstr "监控接口"
+
+msgid "Leave empty to monitor all interfaces except loopback."
+msgstr "留空监控除回环接口外的所有接口。"
+
+msgid "Only connected interfaces"
+msgstr "仅显示已连接接口"
+
+msgid "Temperature sensor"
+msgstr "温度传感器"
+
+msgid "Automatically use the first available sensor, or select a sysfs temperature path. Unavailable sensors return null."
+msgstr "自动使用首个可用传感器，或选择 sysfs 温度路径。传感器不可用时返回 null。"
+
+msgid "Automatic"
+msgstr "自动检测"
+
+msgid "Select a valid temperature sensor path."
+msgstr "请选择有效的温度传感器路径。"
+
+msgid "Allow token in URL"
+msgstr "允许 URL Token 鉴权"
+
+msgid "Allow ?token=TOKEN for clients without custom header support. Otherwise use the X-API-Token header. URLs may appear in access logs."
+msgstr "允许不支持自定义请求头的客户端使用 ?token=TOKEN，否则使用 X-API-Token 请求头。URL 可能记录在访问日志中。"

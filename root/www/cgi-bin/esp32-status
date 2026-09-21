@@ -1,0 +1,205 @@
+#!/bin/sh
+
+# Read-only OpenWrt status endpoint for ESP32-C6.
+# Install as /www/cgi-bin/esp32-status and keep it executable (chmod 755).
+
+export LC_ALL=C
+# Disable pathname expansion for UCI lists and query-string parsing.
+set -f
+. /lib/functions.sh
+config_load esp32monitor
+config_get ENABLED main enabled 0
+config_get API_TOKEN main api_token ''
+config_get ESP32_STATUS_IFACE main wan_device ''
+config_get INTERFACES main interfaces ''
+config_get ONLY_LINK_UP main only_link_up 1
+config_get TEMPERATURE_SOURCE main temperature_source auto
+config_get ALLOW_QUERY_TOKEN main allow_query_token 1
+
+reply_error() {
+    printf 'Status: %s\r\n' "$1"
+    printf 'Content-Type: application/json\r\n'
+    printf 'Cache-Control: no-store\r\n\r\n'
+    printf '{"ok":false,"message":"%s"}\n' "$2"
+    exit 0
+}
+
+[ "${REQUEST_METHOD:-GET}" = "GET" ] || reply_error "405 Method Not Allowed" "GET only"
+[ "$ENABLED" = "1" ] || reply_error "503 Service Unavailable" "endpoint disabled"
+REQUEST_TOKEN="${HTTP_X_API_TOKEN:-}"
+if [ -z "$REQUEST_TOKEN" ] && [ "$ALLOW_QUERY_TOKEN" = "1" ]; then
+    old_ifs="$IFS"
+    IFS='&'
+    for query_part in ${QUERY_STRING:-}; do
+        case "$query_part" in
+            token=*) REQUEST_TOKEN="${query_part#token=}" ;;
+        esac
+    done
+    IFS="$old_ifs"
+fi
+[ -n "$API_TOKEN" ] && [ "$REQUEST_TOKEN" = "$API_TOKEN" ] || reply_error "401 Unauthorized" "invalid token"
+# Permit only URL-safe tokens, also when configured directly with UCI.
+case "$API_TOKEN" in *[!A-Za-z0-9_-]*) reply_error "503 Service Unavailable" "invalid token configuration" ;; esac
+
+valid_device() {
+    case "$1" in ''|*[!A-Za-z0-9_.:@-]*|.|..) return 1 ;; esac
+    return 0
+}
+
+read_cpu() {
+    set -- $(awk '/^cpu / { printf "%.0f %.0f\n", $5+$6, $2+$3+$4+$5+$6+$7+$8+$9; exit }' /proc/stat)
+    CPU_IDLE=${1:-0}
+    CPU_TOTAL=${2:-0}
+}
+
+detect_wan_device() {
+    local dev
+    if valid_device "$ESP32_STATUS_IFACE" && [ -d "/sys/class/net/$ESP32_STATUS_IFACE" ]; then
+        printf '%s' "$ESP32_STATUS_IFACE"
+        return
+    fi
+    if command -v ubus >/dev/null 2>&1 && command -v jsonfilter >/dev/null 2>&1; then
+        dev="$(ubus call network.interface.wan status 2>/dev/null | jsonfilter -e '@.l3_device' 2>/dev/null)"
+        [ -n "$dev" ] && [ -d "/sys/class/net/$dev" ] && { printf '%s' "$dev"; return; }
+    fi
+    dev="$(ip route show default 2>/dev/null | awk 'NR == 1 { for (i=1; i<=NF; i++) if ($i == "dev") { print $(i+1); exit } }')"
+    [ -n "$dev" ] && [ -d "/sys/class/net/$dev" ] && { printf '%s' "$dev"; return; }
+    printf 'unknown'
+}
+
+read_counter() {
+    local file="/sys/class/net/$1/statistics/$2"
+    local value
+    value="$(sed -n '1p' "$file" 2>/dev/null)"
+    case "$value" in ''|*[!0-9]*) printf '0' ;; *) printf '%s' "$value" ;; esac
+}
+
+is_link_up() {
+    local dev="$1" carrier_file state_file value
+    carrier_file="/sys/class/net/$dev/carrier"
+    state_file="/sys/class/net/$dev/operstate"
+
+    # Physical and most virtual netdevs expose carrier: 1 means that the
+    # interface currently has an active lower-layer link.
+    if [ -r "$carrier_file" ]; then
+        value="$(sed -n '1p' "$carrier_file" 2>/dev/null)"
+        case "$value" in
+            1) return 0 ;;
+            0) return 1 ;;
+        esac
+    fi
+
+    # Fall back for netdev types that do not implement the carrier attribute.
+    [ -r "$state_file" ] || return 1
+    value="$(sed -n '1p' "$state_file" 2>/dev/null)"
+    [ "$value" = "up" ]
+}
+
+write_network_snapshot() {
+    local output="$1" path dev rx tx
+    : > "$output"
+    set +f
+    for path in /sys/class/net/*; do
+        [ -d "$path" ] || continue
+        dev="${path##*/}"
+        [ "$dev" = "lo" ] && continue
+        valid_device "$dev" || continue
+        if [ -n "$INTERFACES" ]; then
+            case " $INTERFACES " in *" $dev "*) ;; *) continue ;; esac
+        fi
+        if [ "$ONLY_LINK_UP" = "1" ]; then
+            is_link_up "$dev" || continue
+        fi
+        rx="$(read_counter "$dev" rx_bytes)"
+        tx="$(read_counter "$dev" tx_bytes)"
+        printf '%s %s %s\n' "$dev" "$rx" "$tx" >> "$output"
+    done
+    set -f
+}
+
+read_temperature() {
+    local file value
+    set +f
+    for file in /sys/class/thermal/thermal_zone*/temp /sys/class/hwmon/hwmon*/temp*_input; do
+        [ "$TEMPERATURE_SOURCE" = "auto" ] || [ -z "$TEMPERATURE_SOURCE" ] || [ "$TEMPERATURE_SOURCE" = "$file" ] || continue
+        [ -r "$file" ] || continue
+        value="$(sed -n '1p' "$file" 2>/dev/null)"
+        # Both Linux thermal and hwmon temperature attributes use millidegrees C.
+        if printf '%s\n' "$value" | awk '/^-?[0-9]+$/ { found=1 } END { exit !found }'; then
+            awk -v value="$value" 'BEGIN { printf "%.1f", value / 1000 }'
+            return
+        fi
+    done
+    printf 'null'
+}
+
+HOSTNAME_VALUE="$(cat /proc/sys/kernel/hostname 2>/dev/null | tr -cd 'A-Za-z0-9._-')"
+[ -n "$HOSTNAME_VALUE" ] || HOSTNAME_VALUE="OpenWrt"
+WAN_DEVICE="$(detect_wan_device)"
+ESCAPED_WAN_DEVICE="$(printf '%s' "$WAN_DEVICE" | sed 's/\\/\\\\/g; s/"/\\"/g')"
+umask 077
+SNAPSHOT_1="$(mktemp /tmp/esp32-status.XXXXXX)" || reply_error "500 Internal Server Error" "snapshot failed"
+SNAPSHOT_2=""
+trap 'rm -f "$SNAPSHOT_1" "$SNAPSHOT_2"' 0 1 2 15
+SNAPSHOT_2="$(mktemp /tmp/esp32-status.XXXXXX)" || reply_error "500 Internal Server Error" "snapshot failed"
+read_cpu
+CPU_IDLE_1=$CPU_IDLE
+CPU_TOTAL_1=$CPU_TOTAL
+write_network_snapshot "$SNAPSHOT_1"
+
+SAMPLE_START="$(awk '{ print $1 }' /proc/uptime)"
+sleep 1
+
+read_cpu
+CPU_IDLE_2=$CPU_IDLE
+CPU_TOTAL_2=$CPU_TOTAL
+write_network_snapshot "$SNAPSHOT_2"
+SAMPLE_END="$(awk '{ print $1 }' /proc/uptime)"
+
+CPU_PERCENT="$(awk -v t1="$CPU_TOTAL_1" -v t2="$CPU_TOTAL_2" -v i1="$CPU_IDLE_1" -v i2="$CPU_IDLE_2" 'BEGIN { dt=t2-t1; di=i2-i1; if (dt > 0) printf "%.1f", 100*(dt-di)/dt; else printf "0.0" }')"
+MEM_TOTAL="$(awk '/^MemTotal:/ { print $2; exit }' /proc/meminfo)"
+MEM_AVAILABLE="$(awk '/^MemAvailable:/ { print $2; exit }' /proc/meminfo)"
+if [ -z "$MEM_AVAILABLE" ]; then
+    MEM_AVAILABLE="$(awk '/^MemFree:/ { f=$2 } /^Buffers:/ { b=$2 } /^Cached:/ { c=$2 } END { print f+b+c }' /proc/meminfo)"
+fi
+MEM_PERCENT="$(awk -v total="${MEM_TOTAL:-0}" -v avail="${MEM_AVAILABLE:-0}" 'BEGIN { if (total > 0) printf "%.1f", 100*(total-avail)/total; else printf "0.0" }')"
+TEMPERATURE="$(read_temperature)"
+UPTIME="$(awk '{ printf "%d", $1 }' /proc/uptime)"
+
+INTERFACE_COUNT="$(wc -l < "$SNAPSHOT_2" | tr -d ' ')"
+
+printf 'Content-Type: application/json\r\n'
+printf 'Cache-Control: no-store\r\n\r\n'
+printf '{'
+printf '"ok":true,'
+printf '"hostname":"%s",' "$HOSTNAME_VALUE"
+printf '"cpu_percent":%s,' "$CPU_PERCENT"
+printf '"memory_percent":%s,' "$MEM_PERCENT"
+printf '"temperature_c":%s,' "$TEMPERATURE"
+printf '"uptime_seconds":%s,' "$UPTIME"
+printf '"wan_device":"%s",' "$ESCAPED_WAN_DEVICE"
+printf '"interface_count":%s,' "$INTERFACE_COUNT"
+printf '"interfaces":['
+FIRST_INTERFACE=1
+while read -r dev rx_2 tx_2; do
+    [ -n "$dev" ] || continue
+    previous="$(awk -v name="$dev" '$1 == name { print $2, $3; exit }' "$SNAPSHOT_1")"
+    if [ -n "$previous" ]; then
+        set -- $previous
+        rx_1="${1:-$rx_2}"
+        tx_1="${2:-$tx_2}"
+    else
+        rx_1="$rx_2"
+        tx_1="$tx_2"
+    fi
+    # Use awk for counters that can exceed 32-bit shell arithmetic.
+    download_bps="$(awk -v a="$rx_1" -v b="$rx_2" -v start="$SAMPLE_START" -v end="$SAMPLE_END" 'BEGIN { dt=end-start; printf "%.0f", (b>=a && dt>0) ? (b-a)/dt : 0 }')"
+    upload_bps="$(awk -v a="$tx_1" -v b="$tx_2" -v start="$SAMPLE_START" -v end="$SAMPLE_END" 'BEGIN { dt=end-start; printf "%.0f", (b>=a && dt>0) ? (b-a)/dt : 0 }')"
+    escaped_dev="$(printf '%s' "$dev" | sed 's/\\/\\\\/g; s/"/\\"/g')"
+    [ "$FIRST_INTERFACE" -eq 1 ] || printf ','
+    FIRST_INTERFACE=0
+    printf '{"name":"%s","download_bps":%s,"upload_bps":%s,"download_bytes":%s,"upload_bytes":%s}' \
+        "$escaped_dev" "$download_bps" "$upload_bps" "$rx_2" "$tx_2"
+done < "$SNAPSHOT_2"
+printf ']'
+printf '}\n'
