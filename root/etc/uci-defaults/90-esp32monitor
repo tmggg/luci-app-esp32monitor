@@ -1,8 +1,11 @@
 #!/bin/sh
 # Generate on the target, never during image construction. Preserve existing tokens.
 [ -n "$(uci -q get esp32monitor.main.api_token)" ] || {
-    token="$(od -An -N24 -tx1 /dev/urandom | tr -d ' \n')"
-    [ "${#token}" -eq 48 ] || exit 1
+    # Linux supplies a fresh random UUID on each read; no optional od applet.
+    IFS= read -r uuid < /proc/sys/kernel/random/uuid || exit 1
+    token="$(printf '%s' "$uuid" | tr -d '-')"
+    [ "${#token}" -eq 32 ] || exit 1
+    case "$token" in *[!0-9a-fA-F]*) exit 1 ;; esac
     uci set esp32monitor.main.api_token="$token" || exit 1
     uci commit esp32monitor || exit 1
 }

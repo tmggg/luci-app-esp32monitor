@@ -6,7 +6,7 @@
 
 编译：先在 menuconfig 的 LuCI → Applications 中选中 luci-app-esp32monitor，再在 OpenWrt 根目录执行 `make package/luci-app-esp32monitor/compile V=s`。简体中文界面需同时安装 luci-i18n-esp32monitor-zh-cn。
 安装后在 **服务 → ESP32 监控（ESP32 Monitor）** 中配置并保存应用。
-接口默认关闭，安装初始化会生成 48 位随机十六进制令牌。配置每次请求读取，无需独立守护进程。
+接口默认关闭，安装初始化会生成 32 位 UUID 随机令牌（移除连字符）。配置每次请求读取，无需独立守护进程。
 
 ```sh
 curl -H 'X-API-Token: YOUR_TOKEN' http://ROUTER/cgi-bin/esp32-status
