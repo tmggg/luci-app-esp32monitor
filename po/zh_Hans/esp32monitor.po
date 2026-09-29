@@ -71,3 +71,6 @@ msgstr "时间屏保"
 
 msgid "GIF screensaver"
 msgstr "GIF 屏保"
+
+msgid "Enable S3 GIF screensaver support"
+msgstr "启用 S3 GIF 屏保支持"

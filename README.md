@@ -26,6 +26,7 @@ curl 'http://ROUTER/cgi-bin/esp32-status?token=YOUR_TOKEN'
 | interfaces | 空列表 | 监控全部非 lo 设备，或用 UCI list 指定设备 |
 | only_link_up | 1 | 仅返回 carrier=1 或 operstate=up 的接口 |
 | temperature_source | auto | 自动探测 thermal/hwmon，或指定完整传感器路径 |
+| s3_gif_enabled | 0 | 启用 S3 GIF 屏保支持；勾选后显示屏保类型选项 |
 | screensaver_type | clock | 屏保类型二选一：clock（时间屏保）、gif（GIF 屏保） |
 | screensaver_timeout | 60 | 屏保等待时间，单位秒，整数 0–86400；0 禁用 |
 | allow_query_token | 1 | 允许 URL 中的 token 参数；非空请求头优先 |
@@ -46,7 +47,8 @@ URL Token 只使用上述 URL 安全字符，不做百分号解码。禁用 URL 
 | system_time | HH:MM:SS（24 小时制） | 21:30:05 |
 
 响应新增字符串字段 `screensaver_type`：`"clock"` 表示时间屏保，`"gif"` 表示 GIF 屏保。
-未设置或非法值回退为 `clock`。该选项仅下发类型，不包含 GIF 文件或上传功能；GIF 资源与播放由 ESP32 固件处理。
+只有启用 `s3_gif_enabled=1` 后才能选择 GIF 屏保，默认关闭。关闭时隐藏类型选项并保留原选择，但接口始终返回 `clock`；重新开启后恢复选择。已有配置缺少此开关也视为关闭。
+类型未设置或非法值回退为 `clock`。该选项仅下发类型，不包含 GIF 文件或上传功能；GIF 资源与播放由 ESP32 固件处理。
 两种屏保共用 `screensaver_timeout`，等待时间为 0 时均禁用。
 
 响应还包含数字字段 `screensaver_timeout`，例如 `"screensaver_timeout":60`。

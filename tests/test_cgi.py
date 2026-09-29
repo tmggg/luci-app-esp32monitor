@@ -90,10 +90,17 @@ printf '5000001024\\n' > '{self.root}/sys/class/net/eth0/statistics/rx_bytes'
                                 ('', 'clock'), ('unknown', 'clock'),
                                 ('GIF', 'clock'), ('gif"', 'clock')]:
             with self.subTest(value=value):
-                body = self.run_cgi(TEST_screensaver_type=value,
+                body = self.run_cgi(TEST_s3_gif_enabled='1', TEST_screensaver_type=value,
                                     TEST_screensaver_timeout='0')[1]
                 self.assertEqual(body['screensaver_type'], expected)
                 self.assertEqual(body['screensaver_timeout'], 0)
+
+    def test_s3_gif_support_gate(self):
+        self.assertEqual(self.run_cgi(TEST_screensaver_type='gif')[1]['screensaver_type'], 'clock')
+        for enabled, expected in [('0', 'clock'), ('1', 'gif'), ('', 'clock'), ('invalid', 'clock')]:
+            with self.subTest(enabled=enabled):
+                body = self.run_cgi(TEST_s3_gif_enabled=enabled, TEST_screensaver_type='gif')[1]
+                self.assertEqual(body['screensaver_type'], expected)
 
     def test_screensaver_timeout(self):
         self.assertEqual(self.run_cgi()[1]['screensaver_timeout'], 60)

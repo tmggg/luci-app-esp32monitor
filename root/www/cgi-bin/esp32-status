@@ -15,8 +15,10 @@ config_get INTERFACES main interfaces ''
 config_get ONLY_LINK_UP main only_link_up 1
 config_get TEMPERATURE_SOURCE main temperature_source auto
 config_get ALLOW_QUERY_TOKEN main allow_query_token 1
+config_get S3_GIF_ENABLED main s3_gif_enabled 0
 config_get SCREENSAVER_TYPE main screensaver_type clock
 case "$SCREENSAVER_TYPE" in clock|gif) ;; *) SCREENSAVER_TYPE=clock ;; esac
+[ "$S3_GIF_ENABLED" = "1" ] || SCREENSAVER_TYPE=clock
 config_get SCREENSAVER_TIMEOUT main screensaver_timeout 60
 # Normalize direct UCI edits too, keeping the JSON value a valid integer.
 SCREENSAVER_TIMEOUT="$(printf '%s\n' "$SCREENSAVER_TIMEOUT" | awk '
