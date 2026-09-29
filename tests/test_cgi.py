@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Run the CGI under BusyBox ash with isolated proc/sys and UCI fixtures."""
+from datetime import datetime, timedelta, timezone
 import json
 import os
 from pathlib import Path
@@ -68,6 +69,20 @@ printf '5000001024\\n' > '{self.root}/sys/class/net/eth0/statistics/rx_bytes'
         self.assertEqual(body['interface_count'], 1)
         self.assertEqual(body['interfaces'][0]['download_bps'], 1024)
         self.assertEqual(body['interfaces'][0]['download_bytes'], 5000001024)
+
+    def test_system_date_time(self):
+        # POSIX TZ uses the opposite sign: CST-8 is UTC+08:00.
+        for tz, offset in [('UTC0', 0), ('CST-8', 8), ('EST5', -5)]:
+            with self.subTest(tz=tz):
+                local_zone = timezone(timedelta(hours=offset))
+                before = datetime.now(local_zone).replace(microsecond=0, tzinfo=None)
+                body = self.run_cgi(TZ=tz)[1]
+                after = datetime.now(local_zone).replace(microsecond=0, tzinfo=None)
+                self.assertRegex(body['system_date'], r'^\d{4}-\d{2}-\d{2}$')
+                self.assertRegex(body['system_time'], r'^\d{2}:\d{2}:\d{2}$')
+                actual = datetime.strptime(body['system_date'] + ' ' + body['system_time'], '%Y-%m-%d %H:%M:%S')
+                self.assertLessEqual(before, actual)
+                self.assertLessEqual(actual, after)
 
     def test_disabled(self):
         self.assertIn('503', self.run_cgi(TEST_enabled='0')[0])

@@ -36,6 +36,16 @@ URL Token 只使用上述 URL 安全字符，不做百分号解码。禁用 URL 
 ## 响应与兼容
 
 保留原 JSON 字段：ok、hostname、cpu_percent、memory_percent、temperature_c、uptime_seconds、wan_device、interface_count、interfaces。
+新增系统日期时间字段（字符串）：
+
+| 字段 | 格式 | 示例 |
+| --- | --- | --- |
+| system_date | YYYY-MM-DD | 2026-09-29 |
+| system_time | HH:MM:SS（24 小时制） | 21:30:05 |
+
+日期和时间在采样结束后通过同一次 `date` 调用获取，使用路由器系统本地时区，避免跨午夜时日期与时间不一致。
+返回的是路由器当前系统时钟，不代表已经完成 NTP 校时；ESP32 可以直接显示这两个字段。
+
 接口条目包含 name、download_bps、upload_bps、download_bytes、upload_bytes。
 bps 字段为了兼容保留命名，实际单位为 **B/s**，根据两次采样的实际时间差计算；累计计数为字节。
 没有温度驱动不影响其他指标。设备消失会在下一次快照中排除，计数回退或新出现的设备速率按 0 处理。
