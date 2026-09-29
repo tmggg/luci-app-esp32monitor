@@ -59,3 +59,15 @@ msgstr "屏保等待时间（秒）"
 
 msgid "ESP32 idle time before entering the screensaver. Set to 0 to disable; range: 0–86400 seconds. Requires ESP32 firmware support."
 msgstr "ESP32 无操作多久后进入屏保。设为 0 禁用，范围为 0–86400 秒。需要 ESP32 固件支持。"
+
+msgid "Screensaver type"
+msgstr "屏保类型"
+
+msgid "Choose the clock or GIF screensaver displayed by ESP32. Requires ESP32 firmware support."
+msgstr "选择 ESP32 显示时间屏保或 GIF 屏保。需要 ESP32 固件支持。"
+
+msgid "Clock screensaver"
+msgstr "时间屏保"
+
+msgid "GIF screensaver"
+msgstr "GIF 屏保"

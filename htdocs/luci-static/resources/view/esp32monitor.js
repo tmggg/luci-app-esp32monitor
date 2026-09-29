@@ -71,6 +71,13 @@ return view.extend({
             return value === 'auto' || /^\/sys\/class\/(thermal\/thermal_zone[0-9]+\/temp|hwmon\/hwmon[0-9]+\/temp[0-9]+_input)$/.test(value || '') || _('Select a valid temperature sensor path.');
         };
 
+        o = s.option(form.ListValue, 'screensaver_type', _('Screensaver type'),
+            _('Choose the clock or GIF screensaver displayed by ESP32. Requires ESP32 firmware support.'));
+        o.value('clock', _('Clock screensaver'));
+        o.value('gif', _('GIF screensaver'));
+        o.default = 'clock';
+        o.rmempty = false;
+
         o = s.option(form.Value, 'screensaver_timeout', _('Screensaver timeout (seconds)'),
             _('ESP32 idle time before entering the screensaver. Set to 0 to disable; range: 0–86400 seconds. Requires ESP32 firmware support.'));
         o.datatype = 'and(uinteger,range(0,86400))';

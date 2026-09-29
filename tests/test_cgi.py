@@ -84,6 +84,17 @@ printf '5000001024\\n' > '{self.root}/sys/class/net/eth0/statistics/rx_bytes'
                 self.assertLessEqual(before, actual)
                 self.assertLessEqual(actual, after)
 
+    def test_screensaver_type(self):
+        self.assertEqual(self.run_cgi()[1]['screensaver_type'], 'clock')
+        for value, expected in [('clock', 'clock'), ('gif', 'gif'),
+                                ('', 'clock'), ('unknown', 'clock'),
+                                ('GIF', 'clock'), ('gif"', 'clock')]:
+            with self.subTest(value=value):
+                body = self.run_cgi(TEST_screensaver_type=value,
+                                    TEST_screensaver_timeout='0')[1]
+                self.assertEqual(body['screensaver_type'], expected)
+                self.assertEqual(body['screensaver_timeout'], 0)
+
     def test_screensaver_timeout(self):
         self.assertEqual(self.run_cgi()[1]['screensaver_timeout'], 60)
         for value, expected in [('0', 0), ('120', 120), ('86400', 86400),
