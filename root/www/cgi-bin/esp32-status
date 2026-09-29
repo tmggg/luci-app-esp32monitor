@@ -15,6 +15,12 @@ config_get INTERFACES main interfaces ''
 config_get ONLY_LINK_UP main only_link_up 1
 config_get TEMPERATURE_SOURCE main temperature_source auto
 config_get ALLOW_QUERY_TOKEN main allow_query_token 1
+config_get SCREENSAVER_TIMEOUT main screensaver_timeout 60
+# Normalize direct UCI edits too, keeping the JSON value a valid integer.
+SCREENSAVER_TIMEOUT="$(printf '%s\n' "$SCREENSAVER_TIMEOUT" | awk '
+    NR == 1 && /^[0-9]+$/ && $0+0 <= 86400 { value=$0+0; valid=1 }
+    END { if (NR == 1 && valid) printf "%.0f", value; else printf "60" }
+')"
 
 reply_error() {
     printf 'Status: %s\r\n' "$1"
@@ -184,6 +190,7 @@ printf '"temperature_c":%s,' "$TEMPERATURE"
 printf '"uptime_seconds":%s,' "$UPTIME"
 printf '"system_date":"%s",' "$SYSTEM_DATE"
 printf '"system_time":"%s",' "$SYSTEM_TIME"
+printf '"screensaver_timeout":%s,' "$SCREENSAVER_TIMEOUT"
 printf '"wan_device":"%s",' "$ESCAPED_WAN_DEVICE"
 printf '"interface_count":%s,' "$INTERFACE_COUNT"
 printf '"interfaces":['

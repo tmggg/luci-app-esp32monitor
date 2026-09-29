@@ -26,6 +26,7 @@ curl 'http://ROUTER/cgi-bin/esp32-status?token=YOUR_TOKEN'
 | interfaces | 空列表 | 监控全部非 lo 设备，或用 UCI list 指定设备 |
 | only_link_up | 1 | 仅返回 carrier=1 或 operstate=up 的接口 |
 | temperature_source | auto | 自动探测 thermal/hwmon，或指定完整传感器路径 |
+| screensaver_timeout | 60 | 屏保等待时间，单位秒，整数 0–86400；0 禁用 |
 | allow_query_token | 1 | 允许 URL 中的 token 参数；非空请求头优先 |
 
 采样等待固定 1 秒，不提供 sample_interval。指定 WAN 不改变接口筛选。
@@ -42,6 +43,11 @@ URL Token 只使用上述 URL 安全字符，不做百分号解码。禁用 URL 
 | --- | --- | --- |
 | system_date | YYYY-MM-DD | 2026-09-29 |
 | system_time | HH:MM:SS（24 小时制） | 21:30:05 |
+
+响应还包含数字字段 `screensaver_timeout`，例如 `"screensaver_timeout":60`。
+ESP32 固件应在无用户操作达到此秒数时进入屏保，0 表示禁用；正常状态轮询不应重置无操作计时。
+路由器仅下发配置，不直接控制屏幕；旧 ESP32 固件需增加此字段的处理才会生效。
+旧 UCI 配置缺少此选项或值非法时返回默认值 60；有前导零的合法整数会规范化为 JSON 数字。
 
 日期和时间在采样结束后通过同一次 `date` 调用获取，使用路由器系统本地时区，避免跨午夜时日期与时间不一致。
 返回的是路由器当前系统时钟，不代表已经完成 NTP 校时；ESP32 可以直接显示这两个字段。

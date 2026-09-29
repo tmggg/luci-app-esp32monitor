@@ -71,6 +71,12 @@ return view.extend({
             return value === 'auto' || /^\/sys\/class\/(thermal\/thermal_zone[0-9]+\/temp|hwmon\/hwmon[0-9]+\/temp[0-9]+_input)$/.test(value || '') || _('Select a valid temperature sensor path.');
         };
 
+        o = s.option(form.Value, 'screensaver_timeout', _('Screensaver timeout (seconds)'),
+            _('ESP32 idle time before entering the screensaver. Set to 0 to disable; range: 0–86400 seconds. Requires ESP32 firmware support.'));
+        o.datatype = 'and(uinteger,range(0,86400))';
+        o.default = '60';
+        o.rmempty = false;
+
         o = s.option(form.Flag, 'allow_query_token', _('Allow token in URL'),
             _('Allow ?token=TOKEN for clients without custom header support. Otherwise use the X-API-Token header. URLs may appear in access logs.'));
         o.default = '1';
