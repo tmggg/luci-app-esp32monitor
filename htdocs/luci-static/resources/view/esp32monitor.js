@@ -2,6 +2,7 @@
 'require view';
 'require form';
 'require fs';
+'require ui';
 'require tools.widgets as widgets';
 
 return view.extend({
@@ -24,7 +25,7 @@ return view.extend({
 
     render: function(data) {
         var m = new form.Map('esp32monitor', _('ESP32 Monitor'),
-            _('Provide router status to ESP32 over HTTP. Endpoint: /cgi-bin/esp32-status. Sampling takes approximately one second; traffic rates are bytes per second.'));
+            _('Provide router status to ESP32 over HTTP. Endpoint: /cgi-bin/esp32-status. A background service samples approximately every second; traffic rates are bytes per second.'));
         var s = m.section(form.NamedSection, 'main', 'esp32monitor');
         var o;
 
@@ -83,6 +84,25 @@ return view.extend({
         o.value('gif', _('GIF screensaver'));
         o.default = 'clock';
         o.rmempty = false;
+
+        o = s.option(form.Button, '_upload_gif', _('GIF image'),
+            _('Upload a GIF up to 2 MiB. Replacement takes effect immediately; save settings separately. Playback requires ESP32 firmware support.'));
+        o.depends({ s3_gif_enabled: '1', screensaver_type: 'gif' });
+        o.inputtitle = _('Upload GIF');
+        o.inputstyle = 'action';
+        o.onclick = function(ev) {
+            return ui.uploadFile('/tmp/esp32monitor-upload.gif', ev.target).then(function() {
+                return fs.exec('/usr/libexec/esp32monitor-gif', []);
+            }).then(function(result) {
+                if (result.code !== 0)
+                    throw new Error(result.stderr || _('GIF upload failed'));
+                ui.addNotification(null, E('p', {}, _('GIF uploaded successfully.')), 'info');
+            }).catch(function(error) {
+                ui.addNotification(null, E('p', {}, error.message), 'error');
+            }).finally(function() {
+                return L.resolveDefault(fs.remove('/tmp/esp32monitor-upload.gif'));
+            });
+        };
 
         o = s.option(form.Value, 'screensaver_timeout', _('Screensaver timeout (seconds)'),
             _('ESP32 idle time before entering the screensaver. Set to 0 to disable; range: 0–86400 seconds. Requires ESP32 firmware support.'));

@@ -25,7 +25,22 @@
     "write": {
       "uci": [
         "esp32monitor"
-      ]
+      ],
+      "ubus": {
+        "file": [
+          "exec",
+          "remove",
+          "write"
+        ]
+      },
+      "file": {
+        "/tmp/esp32monitor-upload.gif": [
+          "write"
+        ],
+        "/usr/libexec/esp32monitor-gif": [
+          "exec"
+        ]
+      }
     }
   }
 }

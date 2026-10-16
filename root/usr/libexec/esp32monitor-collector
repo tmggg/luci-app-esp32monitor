@@ -1,0 +1,28 @@
+#!/bin/sh
+umask 077
+CACHE_DIR=/tmp/esp32monitor
+mkdir -p "$CACHE_DIR" || exit 1
+# procd owns the process; lock also prevents accidental manual duplicate sampling.
+if ! mkdir "$CACHE_DIR/lock" 2>/dev/null; then
+    OLD_PID="$(cat "$CACHE_DIR/lock/pid" 2>/dev/null)"
+    case "$OLD_PID" in ''|*[!0-9]*) exit 1 ;; esac
+    kill -0 "$OLD_PID" 2>/dev/null && exit 1
+    rm -f "$CACHE_DIR/lock/pid"
+    rmdir "$CACHE_DIR/lock" || exit 1
+    mkdir "$CACHE_DIR/lock" || exit 1
+fi
+printf '%s\n' "$$" > "$CACHE_DIR/lock/pid"
+trap 'rm -f "$CACHE_DIR/snapshot.new" "$SNAPSHOT_1" "$SNAPSHOT_2"; rm -f "$CACHE_DIR/lock/pid"; rmdir "$CACHE_DIR/lock"' 0
+trap 'rm -f "$CACHE_DIR/snapshot.json"; exit 0' 1 2 15
+. /usr/share/esp32monitor/collector.sh
+BOOT_ID="$(cat /proc/sys/kernel/random/boot_id)" || exit 1
+COLLECTOR_ID="$(cat /proc/sys/kernel/random/uuid)" || exit 1
+SNAPSHOT_1="$CACHE_DIR/previous"
+SNAPSHOT_2="$CACHE_DIR/current"
+: > "$SNAPSHOT_1"
+while :; do
+    ROUND_START="$(monotonic_ms)"
+    sample_once || exit 1
+    DELAY="$(awk -v start="$ROUND_START" -v now="$(monotonic_ms)" 'BEGIN { d=1000-(now-start); if(d<=0) d=1000; printf "%.3f", d/1000 }')"
+    sleep "$DELAY" 2>/dev/null || sleep 1
+done

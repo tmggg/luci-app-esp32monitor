@@ -1,0 +1,63 @@
+#!/bin/sh
+
+# Read-only OpenWrt status endpoint for ESP32-C6.
+# Install as /www/cgi-bin/esp32-status and keep it executable (chmod 755).
+
+export LC_ALL=C
+# Disable pathname expansion for UCI lists and query-string parsing.
+set -f
+. /lib/functions.sh
+config_load esp32monitor
+config_get ENABLED main enabled 0
+config_get API_TOKEN main api_token ''
+config_get ESP32_STATUS_IFACE main wan_device ''
+config_get INTERFACES main interfaces ''
+config_get ONLY_LINK_UP main only_link_up 1
+config_get TEMPERATURE_SOURCE main temperature_source auto
+config_get ALLOW_QUERY_TOKEN main allow_query_token 1
+config_get S3_GIF_ENABLED main s3_gif_enabled 0
+config_get SCREENSAVER_TYPE main screensaver_type clock
+case "$SCREENSAVER_TYPE" in clock|gif) ;; *) SCREENSAVER_TYPE=clock ;; esac
+[ "$S3_GIF_ENABLED" = "1" ] || SCREENSAVER_TYPE=clock
+config_get SCREENSAVER_TIMEOUT main screensaver_timeout 60
+# Normalize direct UCI edits too, keeping the JSON value a valid integer.
+SCREENSAVER_TIMEOUT="$(printf '%s\n' "$SCREENSAVER_TIMEOUT" | awk '
+    NR == 1 && /^[0-9]+$/ && $0+0 <= 86400 { value=$0+0; valid=1 }
+    END { if (NR == 1 && valid) printf "%.0f", value; else printf "60" }
+')"
+
+reply_error() {
+    printf 'Status: %s\r\n' "$1"
+    printf 'Content-Type: application/json\r\n'
+    printf 'Cache-Control: no-store\r\n\r\n'
+    printf '{"ok":false,"message":"%s"}\n' "$2"
+    exit 0
+}
+
+[ "${REQUEST_METHOD:-GET}" = "GET" ] || reply_error "405 Method Not Allowed" "GET only"
+[ "$ENABLED" = "1" ] || reply_error "503 Service Unavailable" "endpoint disabled"
+REQUEST_TOKEN="${HTTP_X_API_TOKEN:-}"
+if [ -z "$REQUEST_TOKEN" ] && [ "$ALLOW_QUERY_TOKEN" = "1" ]; then
+    old_ifs="$IFS"
+    IFS='&'
+    for query_part in ${QUERY_STRING:-}; do
+        case "$query_part" in
+            token=*) REQUEST_TOKEN="${query_part#token=}" ;;
+        esac
+    done
+    IFS="$old_ifs"
+fi
+[ -n "$API_TOKEN" ] && [ "$REQUEST_TOKEN" = "$API_TOKEN" ] || reply_error "401 Unauthorized" "invalid token"
+# Permit only URL-safe tokens, also when configured directly with UCI.
+case "$API_TOKEN" in *[!A-Za-z0-9_-]*) reply_error "503 Service Unavailable" "invalid token configuration" ;; esac
+
+[ "$S3_GIF_ENABLED" = "1" ] || reply_error "404 Not Found" "GIF support disabled"
+# Redirection on a function can fail without terminating BusyBox ash.
+serve_gif() {
+    printf 'Content-Type: image/gif\r\n'
+    printf 'Cache-Control: no-store\r\n'
+    printf 'X-Content-Type-Options: nosniff\r\n\r\n'
+    cat <&3
+    return 0
+}
+serve_gif 3< /etc/esp32monitor/screensaver.gif || reply_error "404 Not Found" "GIF not uploaded"

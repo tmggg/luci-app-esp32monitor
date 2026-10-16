@@ -6,8 +6,8 @@ msgstr ""
 msgid "ESP32 Monitor"
 msgstr "ESP32 监控"
 
-msgid "Provide router status to ESP32 over HTTP. Endpoint: /cgi-bin/esp32-status. Sampling takes approximately one second; traffic rates are bytes per second."
-msgstr "通过 HTTP 向 ESP32 提供路由器状态。接口：/cgi-bin/esp32-status。每次采样约需一秒；流量速率单位为字节/秒。"
+msgid "Provide router status to ESP32 over HTTP. Endpoint: /cgi-bin/esp32-status. A background service samples approximately every second; traffic rates are bytes per second."
+msgstr "通过 HTTP 向 ESP32 提供路由器状态。接口：/cgi-bin/esp32-status。后台约每秒采样一次；流量速率单位为字节/秒。"
 
 msgid "Enable status endpoint"
 msgstr "启用状态接口"
@@ -74,3 +74,18 @@ msgstr "GIF 屏保"
 
 msgid "Enable S3 GIF screensaver support"
 msgstr "启用 S3 GIF 屏保支持"
+
+msgid "GIF image"
+msgstr "GIF 图像"
+
+msgid "Upload GIF"
+msgstr "上传 GIF"
+
+msgid "GIF upload failed"
+msgstr "GIF 上传失败"
+
+msgid "GIF uploaded successfully."
+msgstr "GIF 上传成功。"
+
+msgid "Upload a GIF up to 2 MiB. Replacement takes effect immediately; save settings separately. Playback requires ESP32 firmware support."
+msgstr "上传最大 2 MiB 的 GIF。替换立即生效，其他设置需单独保存。播放需要 ESP32 固件支持。"

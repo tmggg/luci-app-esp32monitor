@@ -1,0 +1,16 @@
+#!/bin/sh
+# Invoked by authenticated LuCI users; no user-supplied paths or commands.
+set -eu
+export LC_ALL=C
+umask 077
+mkdir -p /etc/esp32monitor
+stage="$(mktemp /etc/esp32monitor/.gif.XXXXXX)"
+trap 'rm -f "$stage"' 0
+cp /tmp/esp32monitor-upload.gif "$stage"
+size="$(wc -c < "$stage")"
+[ "$size" -ge 14 ] && [ "$size" -le 2097152 ] || { echo 'GIF must be between 14 bytes and 2 MiB' >&2; exit 1; }
+header="$(dd if="$stage" bs=6 count=1 2>/dev/null)"
+case "$header" in GIF87a|GIF89a) ;; *) echo 'Invalid GIF header' >&2; exit 1 ;; esac
+# Atomic replacement: failed uploads leave the previous GIF intact.
+mv -f "$stage" /etc/esp32monitor/screensaver.gif
+rm -f /tmp/esp32monitor-upload.gif
